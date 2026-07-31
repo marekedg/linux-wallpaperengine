@@ -8,8 +8,8 @@
 using namespace WallpaperEngine::Desktop;
 
 Output::Output (wp_project* wallpaper, const glm::vec4 viewport, bool vflip) :
-    m_wallpaper (wallpaper), m_viewport (viewport), m_outputFramebuffer (GL_NONE), m_previousWidth (1),
-    m_previousHeight (1), m_vflip (vflip) {
+    m_wallpaper (wallpaper), m_viewport (viewport), m_outputFramebuffer (GL_NONE), m_width (1), m_height (1),
+    m_vflip (vflip) {
     if (this->m_wallpaper != nullptr) {
 	// give a hint of the desired window size
 	wp_project_hint_size (this->m_wallpaper, viewport.z, viewport.w);
@@ -26,15 +26,13 @@ void Output::render () {
     const int width = wp_project_get_width (this->m_wallpaper);
     const int height = wp_project_get_height (this->m_wallpaper);
 
-    if (width != this->m_previousWidth || height != this->m_previousHeight) {
+    if (this->m_width != width || this->m_height != height) {
 	this->clearFramebuffer ();
-	this->m_previousWidth = width;
-	this->m_previousHeight = height;
+	this->m_width = width;
+	this->m_height = height;
 	this->setupFramebuffer ();
     }
 
-    // render to our framebuffer
-    wp_render_frame (this->m_wallpaper);
     // now render to the destionation
     glViewport (this->m_viewport.x, this->m_viewport.y, this->m_viewport.z, this->m_viewport.w);
 
@@ -143,9 +141,9 @@ void Output::setupFramebuffer () {
     float vMin = 0.0f;
     float vMax = 1.0f;
 
-    if (this->m_viewport.z > 0 && this->m_viewport.w > 0 && this->m_previousWidth > 0 && this->m_previousHeight > 0) {
+    if (this->m_viewport.z > 0 && this->m_viewport.w > 0 && this->m_width > 0 && this->m_height > 0) {
 	const float ratioV = this->m_viewport.z / this->m_viewport.w;
-	const float ratioW = (float)this->m_previousWidth / (float)this->m_previousHeight;
+	const float ratioW = (float)this->m_width / (float)this->m_height;
 
 	switch (this->m_scaling) {
 	    case Application::ApplicationContext::SCALING_MODE_STRETCH:
@@ -206,9 +204,7 @@ void Output::setupFramebuffer () {
     glObjectLabel (GL_TEXTURE, this->m_texture, -1, "Output texture");
 
     glBindTexture (GL_TEXTURE_2D, this->m_texture);
-    glTexImage2D (
-	GL_TEXTURE_2D, 0, GL_RGBA8, this->m_previousWidth, this->m_previousHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr
-    );
+    glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA8, this->m_width, this->m_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
@@ -390,3 +386,11 @@ void Output::clearFramebuffer () {
 	this->m_vaoBuffer = GL_NONE;
     }
 }
+
+glm::ivec2 Output::getGlobalPosition () const { return this->m_globalPosition; }
+glm::ivec2 Output::getLogicalSize () const { return this->m_logicalSize; }
+glm::ivec4 Output::getFramebufferBounds () const { return this->m_framebufferBounds; }
+
+void Output::setGlobalPosition (const glm::ivec2 position) { this->m_globalPosition = position; }
+void Output::setLogicalSize (const glm::ivec2 size) { this->m_logicalSize = size; }
+void Output::setFramebufferBounds (const glm::ivec4 bounds) { this->m_framebufferBounds = bounds; }

@@ -13,6 +13,9 @@
 #include "WallpaperEngine/Desktop/ScreenAvailableNotification.h"
 #include "WallpaperEngine/Desktop/ScreenUnavailableNotification.h"
 
+namespace WallpaperEngine::Desktop {
+class SpanGroup;
+}
 namespace WallpaperEngine::Application {
 /**
  * Small wrapper class over the actual wallpaper's main application skeleton
@@ -123,10 +126,13 @@ private:
 
     /** The application context that contains the current app settings */
     ApplicationContext& m_context;
-    /** Maps screens to backgrounds */
+    /** Maps span groups to backgrounds */
     std::map<std::string, wp_project*> m_backgrounds {};
     std::map<std::string, ActivePlaylist> m_activePlaylists {};
-    std::map<std::string, std::vector<Desktop::Output*>> m_activeOutputs {};
+    /**
+     * Actual outputs that are currently active
+     */
+    std::map<std::string, std::unique_ptr<Desktop::SpanGroup>> m_activeSpanGroups {};
 
     std::unique_ptr<Audio::Pulseaudio> m_playbackRecorder;
 

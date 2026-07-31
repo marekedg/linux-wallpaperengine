@@ -24,6 +24,9 @@
 #include <numeric>
 #include <unistd.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "WallpaperEngine/Desktop/SpanGroup.h"
+
+#include <glm/ext/vector_common.hpp>
 #include <stb_image_write.h>
 #include <thread>
 
@@ -256,10 +259,10 @@ void WallpaperApplication::advancePlaylist (
 	    : this->m_context.settings.general.clamps[DEFAULT_SCREEN_NAME];
 
 	// TODO: SUPPORT GROUPS
-	const auto activeScreenIt = this->m_activeOutputs.find (screen);
+	const auto activeScreenIt = this->m_activeSpanGroups.find (screen);
 
-	if (activeScreenIt != this->m_activeOutputs.end ()) {
-	    for (auto& output : activeScreenIt->second) {
+	if (activeScreenIt != this->m_activeSpanGroups.end ()) {
+	    for (auto& output : activeScreenIt->second->getOutputs () | std::views::values) {
 		output->setWallpaper (project);
 		output->setScaling (scaling);
 		output->setClamping (clamp);
@@ -385,8 +388,8 @@ void WallpaperApplication::takeScreenshot (const std::filesystem::path& filename
 
     // TODO: AS GROUPS SEPARATE BACKGROUNDS IN PIECES IT MIGHT BE A BETTER IDEA TO JUST DUMP THE LAST FRAME OF THE
     // BACKGROUND INSTEAD?
-    for (const auto& [screen, outputs] : this->m_activeOutputs) {
-	for (const auto& output : outputs) {
+    for (const auto& [screen, outputs] : this->m_activeSpanGroups) {
+	for (const auto& output : outputs->getOutputs () | std::views::values) {
 	    const auto viewport = output->getViewport ();
 	    const int vpWidth = viewport.z - viewport.x;
 	    const int vpHeight = viewport.w - viewport.y;
@@ -541,6 +544,11 @@ void WallpaperApplication::render () {
 	}
     }
 
+    // render one frame of all the backgrounds
+    for (auto& background : this->m_backgrounds | std::views::values) {
+	wp_render_frame (background);
+    }
+
     this->m_desktopEnvironment->render ();
 
     // update playlists status
@@ -588,8 +596,6 @@ void WallpaperApplication::onScreenAvailable (const std::string& screen, Desktop
     std::optional<std::string> defaultBackground = std::nullopt;
     bool defaultBackgroundFromPlaylist = false;
 
-    // TODO: ADD SUPPORT FOR SPAN GROUPS!
-
     // fallback to DEFAULT_SCREEN_NAME as default background
     if (this->m_context.settings.general.backgrounds.contains (DEFAULT_SCREEN_NAME)) {
 	defaultBackground = this->m_context.settings.general.backgrounds[DEFAULT_SCREEN_NAME];
@@ -614,38 +620,36 @@ void WallpaperApplication::onScreenAvailable (const std::string& screen, Desktop
     }
 
     // find the span group (if this screen belongs to one)
-    std::string group;
+    std::string resolvedScreenName;
     std::string groupFilter = ":" + screen + ":";
 
     for (const auto& name : this->m_context.settings.general.backgrounds | std::views::keys) {
-	if (group.find (groupFilter) == std::string::npos) {
+	if (name.find (groupFilter) == std::string::npos && name != screen) {
 	    continue;
 	}
 
-	group = name;
+	resolvedScreenName = name;
 	break;
     }
 
-    if (playlists.contains (screen)) {
+    if (resolvedScreenName.empty ()) {
+	sLog.exception ("Received a screen available notification for a screen without background set: ", screen);
+    }
+
+    if (playlists.contains (resolvedScreenName)) {
 	defaultPlaylist = playlists.at (screen);
-	defaultBackgroundFromPlaylist = true;
-    } else if (!group.empty () && playlists.contains (screen)) {
-	defaultPlaylist = playlists.at (group);
 	defaultBackgroundFromPlaylist = true;
     }
 
     std::string path;
 
-    if (this->m_context.settings.general.backgrounds.contains (screen)) {
-	path = this->m_context.settings.general.backgrounds[screen];
-    } else if (!group.empty () && this->m_context.settings.general.backgrounds.contains (group)) {
-	path = this->m_context.settings.general.backgrounds[group];
+    if (this->m_context.settings.general.backgrounds.contains (resolvedScreenName)) {
+	path = this->m_context.settings.general.backgrounds[resolvedScreenName];
     }
 
     auto currentDefaultBackground = path.empty () ? defaultBackground : path;
     auto currentDefaultPlaylist = defaultBackgroundFromPlaylist ? defaultPlaylist : std::nullopt;
-    const auto it = !group.empty () ? this->m_context.settings.general.playlists.find (group)
-				    : this->m_context.settings.general.playlists.find (screen);
+    const auto it = this->m_context.settings.general.playlists.find (resolvedScreenName);
 
     if (it != this->m_context.settings.general.playlists.end ()) {
 	const auto playlistsIt = playlists.find (it->second);
@@ -657,56 +661,94 @@ void WallpaperApplication::onScreenAvailable (const std::string& screen, Desktop
     }
 
     // only load the playlist if it's not registered yet
-    if (group.empty () && currentDefaultPlaylist.has_value ()) {
-	this->registerPlaylist (screen, *currentDefaultPlaylist, *currentDefaultBackground);
-    } else if (!group.empty () && currentDefaultPlaylist.has_value ()) {
-	if (!this->m_activePlaylists.contains (group)) {
-	    this->registerPlaylist (group, *currentDefaultPlaylist, *currentDefaultBackground);
+    if (currentDefaultPlaylist.has_value ()) {
+	if (!this->m_activePlaylists.contains (resolvedScreenName)) {
+	    this->registerPlaylist (resolvedScreenName, *currentDefaultPlaylist, *currentDefaultBackground);
 	}
     }
 
-    if (currentDefaultBackground.has_value () == false) {
-	return;
-    }
-
-    const auto scalingIt = !group.empty () ? this->m_context.settings.general.scalings.find (group)
-					   : this->m_context.settings.general.scalings.find (screen);
-    const auto clampIt = !group.empty () ? this->m_context.settings.general.clamps.find (group)
-					 : this->m_context.settings.general.clamps.find (screen);
+    const auto scalingIt = this->m_context.settings.general.scalings.find (resolvedScreenName);
+    const auto clampIt = this->m_context.settings.general.clamps.find (resolvedScreenName);
+    const auto backgroundIt = this->m_backgrounds.find (resolvedScreenName);
     const auto scaling = scalingIt != this->m_context.settings.general.scalings.end ()
 	? scalingIt->second
 	: this->m_context.settings.general.scalings[DEFAULT_SCREEN_NAME];
     const auto clamp = clampIt != this->m_context.settings.general.clamps.end ()
 	? clampIt->second
 	: this->m_context.settings.general.clamps[DEFAULT_SCREEN_NAME];
+    const auto background = backgroundIt != this->m_backgrounds.end ()
+	? backgroundIt->second
+	: this->m_backgrounds[resolvedScreenName] = this->loadBackground (*currentDefaultBackground);
 
-    // only load the background if it's not loaded yet
-    if (group.empty ()) {
-	this->m_backgrounds[screen] = this->loadBackground (*currentDefaultBackground);
-    } else if (!group.empty () && !this->m_backgrounds.contains (group)) {
-	this->m_backgrounds[group] = this->loadBackground (*currentDefaultBackground);
+    auto spanIt = this->m_activeSpanGroups.find (resolvedScreenName);
+
+    if (spanIt == this->m_activeSpanGroups.end ()) {
+	const auto [insertIt, status]
+	    = this->m_activeSpanGroups.emplace (resolvedScreenName, std::make_unique<Desktop::SpanGroup> ());
+
+	if (status) {
+	    spanIt = insertIt;
+	} else {
+	    sLog.exception ("Failed to insert screen for span group: " + resolvedScreenName);
+	}
     }
 
-    if (!this->m_activeOutputs.contains (screen)) {
-	this->m_activeOutputs[screen] = std::vector<Desktop::Output*> { output };
-    } else {
-	this->m_activeOutputs[screen].push_back (output);
-    }
+    spanIt->second->registerOutput (screen, output);
+    const auto bounds = spanIt->second->getBounds ();
+    // TODO: SUPPORT SCREEN POSITION CHANGE NOTIFICATIONS
 
-    output->setWallpaper (this->m_backgrounds[screen]);
+    output->setWallpaper (background);
     output->setScaling (scaling);
     output->setClamping (clamp);
+
+    // hint the full size of the span group
+    wp_project_hint_size (background, bounds.w, bounds.z);
 }
 
-void WallpaperApplication::onScreenUnavailable (const std::string& name, Desktop::Output* output) {
-    // de-register background and playlist
-    this->deregisterPlaylist (name);
-    auto it = this->m_backgrounds.find (name);
+void WallpaperApplication::onScreenUnavailable (const std::string& screen, Desktop::Output* output) {
+    // find the span group (if this screen belongs to one)
+    std::string resolvedScreenName;
+    std::string groupFilter = ":" + screen + ":";
 
-    if (it != this->m_backgrounds.end ()) {
-	// free memory
-	wp_project_destroy (it->second);
+    for (const auto& name : this->m_context.settings.general.backgrounds | std::views::keys) {
+	if (name.find (groupFilter) == std::string::npos && name != screen) {
+	    continue;
+	}
+
+	resolvedScreenName = name;
+	break;
     }
 
-    this->m_backgrounds.erase (name);
+    if (resolvedScreenName.empty ()) {
+	sLog.exception ("Received a screen available notification for a screen without background set: ", screen);
+    }
+
+    const auto spanIt = this->m_activeSpanGroups.find (resolvedScreenName);
+
+    if (spanIt == this->m_activeSpanGroups.end ()) {
+	// span group is not active/registered so nothing to do
+	return;
+    }
+
+    // remove screen off the span group
+    spanIt->second->unregisterOutput (screen);
+
+    if (!spanIt->second->getOutputs ().empty ()) {
+	// nothing really to do here, everything should be ready to go
+	return;
+    }
+
+    // last screen of the span group, so de-register background and playlist so it doesn't use any resources!
+    this->deregisterPlaylist (resolvedScreenName);
+
+    // destroy the background in use
+    const auto backgroundIt = this->m_backgrounds.find (resolvedScreenName);
+
+    if (backgroundIt == this->m_backgrounds.end ()) {
+	return;
+    }
+
+    wp_project_destroy (backgroundIt->second);
+
+    this->m_backgrounds.erase (resolvedScreenName);
 }

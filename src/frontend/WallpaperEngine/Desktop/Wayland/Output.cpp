@@ -32,7 +32,7 @@ static void geometry (
     const auto output = static_cast<Output*> (data);
 
     if (!output->hasXdgLogicalPosition) {
-	output->globalPosition = { x, y };
+	output->setGlobalPosition (glm::ivec2 (x, y));
     }
     // ignored
 }
@@ -78,14 +78,14 @@ static void handle_frame_callback_done (void* data, wl_callback* cb, uint32_t ti
 static void xdg_output_logical_position (void* data, struct zxdg_output_v1* xdg_output, int32_t x, int32_t y) {
     const auto output = static_cast<Output*> (data);
 
-    output->globalPosition = { x, y };
+    output->setGlobalPosition (glm::ivec2 (x, y));
     output->hasXdgLogicalPosition = true;
 }
 
 static void xdg_output_logical_size (void* data, struct zxdg_output_v1* xdg_output, int32_t width, int32_t height) {
     const auto output = static_cast<Output*> (data);
 
-    output->logicalSize = { width, height };
+    output->setLogicalSize (glm::ivec2 (width, height));
 }
 
 static void xdg_output_done (void* data, struct zxdg_output_v1* xdg_output) { }

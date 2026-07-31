@@ -4,6 +4,7 @@
 
 #include <glad/glad.h>
 
+#include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
 #include <linux-wallpaperengine/project.h>
 
@@ -25,6 +26,14 @@ public:
     [[nodiscard]] GLuint getFramebuffer () const;
     [[nodiscard]] wp_project* getWallpaper () const;
 
+    [[nodiscard]] glm::ivec2 getGlobalPosition () const;
+    [[nodiscard]] glm::ivec2 getLogicalSize () const;
+    [[nodiscard]] glm::ivec4 getFramebufferBounds () const;
+
+    void setGlobalPosition (glm::ivec2 position);
+    void setLogicalSize (glm::ivec2 size);
+    void setFramebufferBounds (glm::ivec4 bounds);
+
 private:
     void setupFramebuffer ();
     void clearFramebuffer ();
@@ -39,8 +48,8 @@ private:
     Application::ApplicationContext::CLAMP_MODE m_clamp = Application::ApplicationContext::CLAMP_MODE_UVS;
     Application::ApplicationContext::SCALING_MODE m_scaling = Application::ApplicationContext::SCALING_MODE_DEFAULT;
     bool m_vflip;
-    int m_previousWidth = 0;
-    int m_previousHeight = 0;
+    int m_width = 0;
+    int m_height = 0;
     GLuint m_shader = GL_NONE;
     GLuint m_texture = GL_NONE;
     GLuint m_positionBuffer = GL_NONE;
@@ -49,5 +58,9 @@ private:
     GLint m_texture0 = GL_NONE;
     GLint m_position = GL_NONE;
     GLint m_texCoord = GL_NONE;
+
+    glm::ivec2 m_globalPosition;
+    glm::ivec2 m_logicalSize;
+    glm::ivec4 m_framebufferBounds;
 };
 }

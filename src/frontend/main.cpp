@@ -4,6 +4,7 @@
 #include "WallpaperEngine/Application/ApplicationContext.h"
 #include "WallpaperEngine/Application/WallpaperApplication.h"
 #include "WallpaperEngine/Debugging/CallStack.h"
+#include "WallpaperEngine/Desktop/SpanGroup.h"
 #include "WallpaperEngine/Logging/Log.h"
 
 #include <linux-wallpaperengine/configuration.h>
