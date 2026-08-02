@@ -123,7 +123,7 @@ ContentListEntry* Configuration::openBackgroundList () {
     };
 }
 
-PlaylistListEntry* Configuration::openPlaylistList () {
+PlaylistListEntry* Configuration::openPlaylistList () const {
     auto baseConfig = WallpaperEngine::Data::Parsers::ConfigParser::load (this->assets_dir / ".." / "config.json");
     const auto it = baseConfig->playlists.begin ();
 
@@ -198,6 +198,10 @@ void ContentListEntry::reset () {
 }
 
 PlaylistListEntry::~PlaylistListEntry () {
+    for (int i = 0; i < this->entry.item_count; i++) {
+	delete this->entry.items[i];
+    }
+
     this->entry.name = nullptr;
     delete[] this->entry.items;
     delete[] this->entry.daytimeend;
@@ -212,6 +216,10 @@ wp_playlist_entry* PlaylistListEntry::next () {
 	this->it = this->config->playlists.begin ();
 
 	return nullptr;
+    }
+
+    for (int i = 0; i < this->entry.item_count; i++) {
+	delete this->entry.items[i];
     }
 
     // free previous list
@@ -232,7 +240,10 @@ wp_playlist_entry* PlaylistListEntry::next () {
     size_t i = 0;
 
     for (const auto& item : this->it->second->items) {
-	this->entry.items[i] = item->path.c_str ();
+	char* buffer = new char[item->path.length () + 1];
+
+	memcpy (buffer, item->path.c_str (), item->path.length () + 1); // include null terminator
+	this->entry.items[i] = buffer;
 	this->entry.daytimeend[i++] = item->daytimeend;
     }
 
@@ -243,6 +254,10 @@ wp_playlist_entry* PlaylistListEntry::next () {
 }
 
 void PlaylistListEntry::reset () {
+    for (int i = 0; i < this->entry.item_count; i++) {
+	delete this->entry.items[i];
+    }
+
     delete[] this->entry.items;
     delete[] this->entry.daytimeend;
 

@@ -91,7 +91,6 @@ struct Playlist {
 };
 
 struct Config {
-    std::string installDirectory;
     PlaylistMap playlists;
 };
 }

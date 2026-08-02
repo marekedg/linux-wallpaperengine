@@ -54,10 +54,13 @@ struct PlaylistsFixture {
 	// uuidv4 should be more than enough
 	root = std::filesystem::temp_directory_path () / WallpaperEngine::Utils::UUID::UUIDv4 () / "common"
 	    / "wallpaper_engine";
-	bgroot = root / ".." / "..";
+	bgroot = (root / ".." / ".." / "workshop" / "431960").lexically_normal ();
 
 	std::filesystem::create_directories (root);
 	std::filesystem::create_directories (root / "assets");
+
+	contents
+	    = { { "steamuser", { { "general", { { "playlists", WallpaperEngine::Data::JSON::JSON::array () } } } } } };
     }
 
     ~PlaylistsFixture () { std::filesystem::remove_all (root); }
@@ -71,11 +74,13 @@ struct PlaylistsFixture {
 
 	std::ranges::transform (
 	    backgrounds, std::back_inserter (backgroundsFinal),
-	    [this] (const std::filesystem::path& path) { return bgroot / path; }
+	    [this] (const std::filesystem::path& path) { return "Z:" / bgroot / path / "scene.pkg"; }
 	);
 
 	std::ranges::for_each (backgroundsFinal, [] (const std::filesystem::path& path) {
 	    std::filesystem::create_directories (path.parent_path ());
+	    // empty file is fine, just make sure it exists
+	    std::ofstream (path) << "";
 	});
 
 	const WallpaperEngine::Data::JSON::JSON playlist
@@ -93,9 +98,7 @@ struct PlaylistsFixture {
 
     void createConfigFile () { std::ofstream (root / "config.json") << contents; }
 
-    WallpaperEngine::Data::JSON::JSON contents
-	= { { "?installdirectory", root },
-	    { "steamuser", { { "general", { { "playlists", WallpaperEngine::Data::JSON::JSON::array () } } } } } };
+    WallpaperEngine::Data::JSON::JSON contents;
 
     std::filesystem::path root;
     std::filesystem::path bgroot;

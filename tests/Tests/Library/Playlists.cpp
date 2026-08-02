@@ -29,6 +29,9 @@ TEST_CASE_METHOD (PlaylistsFixture, "Playlist behaviour") {
     REQUIRE (entry->item_count == 3);
     REQUIRE (entry->items != nullptr);
     REQUIRE (entry->daytimeend != nullptr);
+    REQUIRE (strcmp (entry->items[0], (bgroot / "3326873240").c_str ()) == 0);
+    REQUIRE (strcmp (entry->items[1], (bgroot / "2317494988").c_str ()) == 0);
+    REQUIRE (strcmp (entry->items[2], (bgroot / "2931252198").c_str ()) == 0);
 
     // validate that after the last result we get a nullptr
     REQUIRE (wp_playlists_next (lists) == nullptr);

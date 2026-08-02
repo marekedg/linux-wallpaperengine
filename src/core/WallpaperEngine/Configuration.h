@@ -68,7 +68,7 @@ public:
     bool setSteamDir (const std::filesystem::path& path);
     bool setAssetsDir (const std::filesystem::path& path);
     bool setBackgroundsDir (const std::filesystem::path& path);
-    ContentListEntry* openBackgroundList ();
-    PlaylistListEntry* openPlaylistList ();
+    [[nodiscard]] ContentListEntry* openBackgroundList ();
+    [[nodiscard]] PlaylistListEntry* openPlaylistList () const;
 };
 }

@@ -18,21 +18,15 @@ ConfigUniquePtr ConfigParser::load (const std::filesystem::path& path) {
 }
 
 ConfigUniquePtr ConfigParser::parse (const JSON& data) {
-    std::filesystem::path installDirectory
-	= data.require ("?installdirectory", "Playlist requires a install directory as base");
     const auto playlistsJson
 	= data.optional ("steamuser").value_or (JSON ()).optional ("general").value_or (JSON ()).optional ("playlists");
 
-    const auto baseDir = installDirectory / ".." / ".." / "workshop" / "content" / std::to_string (WORKSHOP_APP_ID);
-
     return std::make_unique<Config> (Config {
-	.installDirectory = installDirectory,
-	.playlists = playlistsJson.has_value () ? parsePlaylists (*playlistsJson, installDirectory.lexically_normal ())
-						: PlaylistMap {},
+	.playlists = playlistsJson.has_value () ? parsePlaylists (*playlistsJson) : PlaylistMap {},
     });
 }
 
-PlaylistMap ConfigParser::parsePlaylists (const JSON& it, const std::filesystem::path& base) {
+PlaylistMap ConfigParser::parsePlaylists (const JSON& it) {
     PlaylistMap result = {};
 
     if (!it.is_array ()) {
@@ -40,7 +34,7 @@ PlaylistMap ConfigParser::parsePlaylists (const JSON& it, const std::filesystem:
     }
 
     for (const auto& cur : it) {
-	auto playlist = parsePlaylist (cur, base);
+	auto playlist = parsePlaylist (cur);
 
 	result.emplace (playlist->name, std::move (playlist));
     }
@@ -48,7 +42,7 @@ PlaylistMap ConfigParser::parsePlaylists (const JSON& it, const std::filesystem:
     return result;
 }
 
-PlaylistUniquePtr ConfigParser::parsePlaylist (const JSON& it, const std::filesystem::path& base) {
+PlaylistUniquePtr ConfigParser::parsePlaylist (const JSON& it) {
     const auto settings = it.require ("settings", "Playlist must have settings");
     const auto transition = settings.require ("transition", "Playlist must have a transition");
     const auto order = settings.require ("order", "Playlist must have a order");
@@ -60,12 +54,11 @@ PlaylistUniquePtr ConfigParser::parsePlaylist (const JSON& it, const std::filesy
 	.delay = settings.require ("delay", "Playlist must have a delay"),
 	.transition = parseTransition (settings.require ("transition", "Playlist must have a transition")),
 	.transitiontime = settings.require ("transitiontime", "Playlist must have a transitiontime"),
-	.items = parsePlaylistItems (it.require ("items", "Playlist must have items"), base),
+	.items = parsePlaylistItems (it.require ("items", "Playlist must have items")),
     });
 }
 
-std::vector<PlaylistItemUniquePtr>
-ConfigParser::parsePlaylistItems (const JSON& it, const std::filesystem::path& base) {
+std::vector<PlaylistItemUniquePtr> ConfigParser::parsePlaylistItems (const JSON& it) {
     std::vector<PlaylistItemUniquePtr> result = {};
 
     if (!it.is_array ()) {
@@ -74,26 +67,32 @@ ConfigParser::parsePlaylistItems (const JSON& it, const std::filesystem::path& b
 
     for (const auto& cur : it) {
 	float daytimeend = 0.0f;
-	std::filesystem::path fullpath;
+	std::filesystem::path path;
 
 	if (cur.is_object ()) {
 	    daytimeend = cur.optional ("daytimeend", 0.0f);
-	    fullpath = base / cur.require ("file", "Playlist item must have a path");
+	    path = cur.require ("file", "Playlist item must have a path").get<std::string> ();
 	} else {
-	    fullpath = cur.get<std::string> ();
+	    path = cur.get<std::string> ();
 	}
-
-	// if the base is present in the background's path, we just care about the first folder
-	// after the base, as that's the id
-	std::filesystem::path path = fullpath.lexically_proximate (base);
 
 	if (path.empty ()) {
 	    continue;
 	}
 
-	result.push_back (
-	    std::make_unique<PlaylistItem> (PlaylistItem { .daytimeend = daytimeend, .path = *path.begin () })
-	);
+	// cleanup the path
+	if (path.has_root_name ()) {
+	    // remove Z:/ from the front
+	    path = path.lexically_relative (*path.begin ());
+	}
+
+	if (std::filesystem::is_regular_file (path) == false) {
+	    continue;
+	}
+
+	path = path.parent_path ();
+
+	result.push_back (std::make_unique<PlaylistItem> (PlaylistItem { .daytimeend = daytimeend, .path = path }));
     }
 
     return result;
