@@ -67,24 +67,29 @@ std::vector<PlaylistItemUniquePtr> ConfigParser::parsePlaylistItems (const JSON&
 
     for (const auto& cur : it) {
 	float daytimeend = 0.0f;
-	std::filesystem::path path;
+	std::string fullpath;
 
 	if (cur.is_object ()) {
 	    daytimeend = cur.optional ("daytimeend", 0.0f);
-	    path = cur.require ("file", "Playlist item must have a path").get<std::string> ();
+	    fullpath = cur.require ("file", "Playlist item must have a path").get<std::string> ();
 	} else {
-	    path = cur.get<std::string> ();
+	    fullpath = cur.get<std::string> ();
 	}
 
-	if (path.empty ()) {
+	if (fullpath.empty ()) {
 	    continue;
 	}
 
-	// cleanup the path
-	if (path.has_root_name ()) {
-	    // remove Z:/ from the front
-	    path = path.lexically_relative (*path.begin ());
+	// windows-specific code that cleans up the filepaths
+	if (fullpath.starts_with (R"(\\?\)") || fullpath.starts_with ("//?/")) {
+	    fullpath = fullpath.substr (4);
 	}
+
+	if (fullpath.at (1) == ':') {
+	    fullpath = fullpath.substr (2);
+	}
+
+	std::filesystem::path path = fullpath;
 
 	if (std::filesystem::is_regular_file (path) == false) {
 	    continue;

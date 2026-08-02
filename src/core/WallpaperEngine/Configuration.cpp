@@ -202,7 +202,7 @@ PlaylistListEntry::~PlaylistListEntry () {
 	delete this->entry.items[i];
     }
 
-    this->entry.name = nullptr;
+    delete[] this->entry.name;
     delete[] this->entry.items;
     delete[] this->entry.daytimeend;
     this->entry.item_count = 0;
@@ -225,9 +225,13 @@ wp_playlist_entry* PlaylistListEntry::next () {
     // free previous list
     delete[] this->entry.items;
     delete[] this->entry.daytimeend;
+    delete[] this->entry.name;
 
     // iterator is valid otherwise, extract important information and place it in the allocated structure
-    this->entry.name = this->it->first.c_str ();
+    char* nameBuffer = new char[this->it->first.length () + 1];
+
+    memcpy (nameBuffer, this->it->first.c_str (), this->it->first.length () + 1); // include null terminator
+    this->entry.name = nameBuffer;
     this->entry.item_count = this->it->second->items.size ();
     this->entry.items = new const char*[this->entry.item_count];
     this->entry.daytimeend = new float[this->entry.item_count];
@@ -260,6 +264,7 @@ void PlaylistListEntry::reset () {
 
     delete[] this->entry.items;
     delete[] this->entry.daytimeend;
+    delete[] this->entry.name;
 
     this->entry.name = nullptr;
     this->entry.item_count = 0;

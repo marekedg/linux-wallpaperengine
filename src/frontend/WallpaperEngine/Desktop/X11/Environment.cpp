@@ -38,6 +38,44 @@ int CustomXIOErrorHandler (Display* dsp) {
     return 0;
 }
 
+static double mouse_x;
+static double mouse_y;
+
+static double get_x (void* user_parameter) {
+    const auto window = static_cast<GLFWwindow*> (user_parameter);
+
+    glfwGetCursorPos (window, &mouse_x, &mouse_y);
+
+    return mouse_x;
+}
+
+static double get_y (void* user_parameter) {
+    const auto window = static_cast<GLFWwindow*> (user_parameter);
+
+    glfwGetCursorPos (window, &mouse_x, &mouse_y);
+
+    return mouse_y;
+}
+
+static int is_pressed (void* user_parameter, int button) {
+    const auto window = static_cast<GLFWwindow*> (user_parameter);
+    int result = 0;
+
+    if (button & WP_MOUSE_INPUT_BUTTON_RIGHT) {
+	result |= glfwGetMouseButton (window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS * WP_MOUSE_INPUT_BUTTON_RIGHT;
+    }
+
+    if (button & WP_MOUSE_INPUT_BUTTON_LEFT) {
+	result |= glfwGetMouseButton (window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS * WP_MOUSE_INPUT_BUTTON_LEFT;
+    }
+
+    if (button & WP_MOUSE_INPUT_BUTTON_MIDDLE) {
+	result |= glfwGetMouseButton (window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS * WP_MOUSE_INPUT_BUTTON_MIDDLE;
+    }
+
+    return result;
+}
+
 Environment::Environment (
     Application::ApplicationContext& context, ScreenAvailableNotification& availableNotification,
     ScreenUnavailableNotification& unavailableNotification
@@ -53,13 +91,6 @@ Environment::Environment (
 	.user_parameter = this,
 	.get_proc_address = get_proc_address,
     };
-    this->mouse_input = {
-	.user_parameter = this,
-	.get_x = nullptr,
-	.get_y = nullptr,
-	.is_pressed = nullptr,
-    };
-    // TODO: MOUSE INPUT SUPPORT!
 
     // initialize glfw first
     if (glfwInit () == GLFW_FALSE) {
@@ -117,6 +148,13 @@ Environment::Environment (
     this->m_prop_esetroot = XInternAtom (this->m_display, "ESETROOT_PMAP_ID", False);
     this->m_net_wm_state = XInternAtom (this->m_display, "_NET_WM_STATE", False);
     this->m_net_wm_state_fullscreen = XInternAtom (this->m_display, "_NET_WM_STATE_FULLSCREEN", False);
+
+    this->mouse_input = {
+	.user_parameter = this->m_window,
+	.get_x = get_x,
+	.get_y = get_y,
+	.is_pressed = is_pressed,
+    };
 
     this->detectOutputs ();
 }

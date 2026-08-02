@@ -19,6 +19,7 @@ static void* get_proc_address (void* user_parameter, const char* name) {
 static double mouse_x;
 static double mouse_y;
 
+// TODO: HANDLE MOUSE POSITION BASED ON WHAT'S FOCUSED
 static double get_x (void* user_parameter) {
     const auto window = static_cast<GLFWwindow*> (user_parameter);
 
