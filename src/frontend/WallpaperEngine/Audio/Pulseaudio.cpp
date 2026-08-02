@@ -91,6 +91,10 @@ void pa_stream_read_cb (pa_stream* stream, const size_t /*nbytes*/, void* userda
 }
 
 void pa_server_info_cb (pa_context* ctx, const pa_server_info* info, void* userdata) {
+    if (info == nullptr) {
+        return;
+    }
+
     auto* recorder = static_cast<Pulseaudio*> (userdata);
 
     pa_sample_spec spec;
@@ -158,13 +162,18 @@ void pa_sink_input_info_cb (pa_context* ctx, const pa_sink_input_info* info, int
 void pa_context_subscribe_cb (pa_context* ctx, pa_subscription_event_type_t t, uint32_t idx, void* userdata) {
     auto impl = static_cast<Pulseaudio*> (userdata);
     auto facility = t & PA_SUBSCRIPTION_EVENT_FACILITY_MASK;
+    pa_operation* op = nullptr;
 
     if (facility == PA_SUBSCRIPTION_EVENT_SINK_INPUT) {
 	impl->anythingPlaying = false;
-	pa_context_get_sink_input_info_list (ctx, &pa_sink_input_info_cb, userdata);
+	op = pa_context_get_sink_input_info_list (ctx, &pa_sink_input_info_cb, userdata);
     } else if (facility == PA_SUBSCRIPTION_EVENT_SINK || facility == PA_SUBSCRIPTION_EVENT_SOURCE) {
 	// context being ready means to fetch the sink too
-	pa_context_get_server_info (ctx, &pa_server_info_cb, userdata);
+	op = pa_context_get_server_info (ctx, &pa_server_info_cb, userdata);
+    }
+
+    if (op != nullptr) {
+        pa_operation_unref (op);
     }
 }
 
@@ -188,7 +197,11 @@ void pa_context_notify_cb (pa_context* ctx, void* userdata) {
 		}
 
 		// also request sink input status so at startup there's valid data
-		pa_context_get_sink_input_info_list (ctx, &pa_sink_input_info_cb, userdata);
+		o = pa_context_get_sink_input_info_list (ctx, &pa_sink_input_info_cb, userdata);
+
+	        if (o) {
+	            pa_operation_unref (o);
+	        }
 		break;
 	    }
 	case PA_CONTEXT_FAILED:
