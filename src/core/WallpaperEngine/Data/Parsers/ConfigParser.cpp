@@ -78,7 +78,7 @@ ConfigParser::parsePlaylistItems (const JSON& it, const std::filesystem::path& b
 
 	if (cur.is_object ()) {
 	    daytimeend = cur.optional ("daytimeend", 0.0f);
-	    fullpath = base / cur.require ("path", "Playlist item must have a path");
+	    fullpath = base / cur.require ("file", "Playlist item must have a path");
 	} else {
 	    fullpath = cur.get<std::string> ();
 	}

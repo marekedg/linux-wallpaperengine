@@ -454,13 +454,7 @@ void ApplicationContext::loadSettingsFromArgv () {
 	// perform some extra validation on the inputs
 	this->validateAssets ();
 	this->validateScreenshot ();
-#if DEMOMODE
-	sLog.error ("WARNING: RUNNING IN DEMO MODE WILL STOP WALLPAPERS AFTER 5 SECONDS SO VIDEO CAN BE RECORDED");
-	// special settings for demomode
-	this->settings.render.maximumFPS = 30;
-	this->settings.screenshot.take = false;
-	this->settings.render.pauseOnFullscreen = false;
-#endif /* DEMOMODE */
+	this->validatePlaylists ();
     } catch (const std::runtime_error& e) {
 	throw std::runtime_error (
 	    std::string (e.what ()) + ". Use " + std::string (this->m_argv[0]) + " --help for more information"
@@ -540,10 +534,6 @@ void ApplicationContext::validateScreenshot () const {
 void ApplicationContext::validatePlaylists () {
     std::vector<std::string> playlistsToCheck;
 
-    if (this->settings.general.playlists.contains (DEFAULT_SCREEN_NAME)) {
-	playlistsToCheck.push_back (this->settings.general.playlists[DEFAULT_SCREEN_NAME]);
-    }
-
     for (const auto& playlist : this->settings.general.playlists | std::views::values) {
 	playlistsToCheck.push_back (playlist);
     }
@@ -573,18 +563,18 @@ void ApplicationContext::validatePlaylists () {
 
 	if (inserted.second == false) {
 	    // push the playlist back again, could not be added to the list of playlists available
-	    playlistsToCheck.push_back (entry->name);
+	    playlistsToCheck.emplace_back (entry->name);
 	}
 
 	// add all the entries to the playlist
 	for (int i = 0; i < entry->item_count; i++) {
-	    inserted.first->second.items.push_back (entry->items[i]);
+	    inserted.first->second.items.emplace_back (entry->items[i]);
 	}
     }
 
     wp_playlists_destroy (playlists);
 
-    if (playlistsToCheck.size () > 0) {
+    if (!playlistsToCheck.empty ()) {
 	sLog.error ("Could not find the following playlists: ");
 
 	for (const auto& playlist : playlistsToCheck) {
