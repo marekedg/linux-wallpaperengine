@@ -653,7 +653,7 @@ void ScriptEngine::notifyTrackMetadataChange (
     JS_SetPropertyStr (ctx, propertiesEvent, "title", JS_NewString (ctx, title.has_value () ? title->c_str () : ""));
     JS_SetPropertyStr (ctx, propertiesEvent, "artist", JS_NewString (ctx, artist.has_value () ? artist->c_str () : ""));
     JS_SetPropertyStr (
-	ctx, propertiesEvent, "albumTitle", JS_NewString (ctx, album.has_value () ? artist->c_str () : "")
+	ctx, propertiesEvent, "albumTitle", JS_NewString (ctx, album.has_value () ? album->c_str () : "")
     );
 
     this->m_queuedEvents.insert_or_assign ("mediaPropertiesChanged", propertiesEvent);
