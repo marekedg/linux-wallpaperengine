@@ -486,8 +486,8 @@ void WallpaperApplication::takeScreenshot (const std::filesystem::path& filename
 void WallpaperApplication::setupAudio () {
     // do not initialize audio subsystem if no automute and no audioprocessing support is enabled
     if (this->m_context.settings.audio.audioprocessing || this->m_context.settings.audio.automute) {
-        this->m_playbackRecorder = std::make_unique<Audio::Pulseaudio> ();
-        this->m_playbackRecorder->desktopEnvironment = this->m_desktopEnvironment;
+	this->m_playbackRecorder = std::make_unique<Audio::Pulseaudio> ();
+	this->m_playbackRecorder->desktopEnvironment = this->m_desktopEnvironment;
     }
 
     // setup audio processing

@@ -573,7 +573,7 @@ bool Environment::isRelevant (const bool fullscreen, const bool activated, const
 	}
 
 	std::string lowercaseIgnore;
-        lowercaseIgnore.resize (ignore.length ());
+	lowercaseIgnore.resize (ignore.length ());
 	std::ranges::transform (ignore, std::back_inserter (lowercaseIgnore), ::tolower);
 
 	if (lowercaseAppId.find (lowercaseIgnore) != std::string::npos) {

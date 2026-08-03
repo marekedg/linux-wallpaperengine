@@ -92,7 +92,7 @@ void pa_stream_read_cb (pa_stream* stream, const size_t /*nbytes*/, void* userda
 
 void pa_server_info_cb (pa_context* ctx, const pa_server_info* info, void* userdata) {
     if (info == nullptr) {
-        return;
+	return;
     }
 
     auto* recorder = static_cast<Pulseaudio*> (userdata);
@@ -173,7 +173,7 @@ void pa_context_subscribe_cb (pa_context* ctx, pa_subscription_event_type_t t, u
     }
 
     if (op != nullptr) {
-        pa_operation_unref (op);
+	pa_operation_unref (op);
     }
 }
 
@@ -199,9 +199,9 @@ void pa_context_notify_cb (pa_context* ctx, void* userdata) {
 		// also request sink input status so at startup there's valid data
 		o = pa_context_get_sink_input_info_list (ctx, &pa_sink_input_info_cb, userdata);
 
-	        if (o) {
-	            pa_operation_unref (o);
-	        }
+		if (o) {
+		    pa_operation_unref (o);
+		}
 		break;
 	    }
 	case PA_CONTEXT_FAILED:
