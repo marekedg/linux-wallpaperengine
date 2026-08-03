@@ -564,7 +564,8 @@ bool Environment::isRelevant (const bool fullscreen, const bool activated, const
     }
 
     std::string lowercaseAppId;
-    std::transform (appId.begin (), appId.end (), lowercaseAppId.begin (), ::tolower);
+    lowercaseAppId.resize (appId.length ());
+    std::ranges::transform (appId, std::back_inserter (lowercaseAppId), ::tolower);
 
     for (const auto& ignore : this->m_context.settings.render.fullscreenPauseIgnoreAppIds) {
 	if (ignore.empty ()) {
@@ -572,7 +573,8 @@ bool Environment::isRelevant (const bool fullscreen, const bool activated, const
 	}
 
 	std::string lowercaseIgnore;
-	std::transform (ignore.begin (), ignore.end (), lowercaseIgnore.begin (), ::tolower);
+        lowercaseIgnore.resize (ignore.length ());
+	std::ranges::transform (ignore, std::back_inserter (lowercaseIgnore), ::tolower);
 
 	if (lowercaseAppId.find (lowercaseIgnore) != std::string::npos) {
 	    return false;
