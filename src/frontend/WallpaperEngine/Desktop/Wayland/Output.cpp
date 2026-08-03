@@ -202,6 +202,14 @@ void Output::setupLayerShell () {
 	wl_region_add (region, 0, 0, INT32_MAX, INT32_MAX);
     }
 
+    // mark the surface as fully opaque so the compositor can skip rendering
+    // anything below it and avoid alpha-blending. Wallpapers are by definition
+    // the bottommost visible content, so this is always a win
+    wl_region* opaqueRegion = wl_compositor_create_region (this->m_environment.wayland_context.compositor);
+    wl_region_add (opaqueRegion, 0, 0, INT32_MAX, INT32_MAX);
+    wl_surface_set_opaque_region (this->m_wl_surface, opaqueRegion);
+    wl_region_destroy (opaqueRegion);
+
     zwlr_layer_surface_v1_set_size (this->m_layerSurface, 0, 0);
     zwlr_layer_surface_v1_set_anchor (
 	this->m_layerSurface,
