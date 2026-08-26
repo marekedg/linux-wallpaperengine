@@ -456,17 +456,19 @@ void CText::render () {
     const glm::vec3 scale = m_text.scale->value->getVec3 ();
     const glm::vec3 origin = m_text.origin->value->getVec3 ();
 
-    // WE uses a Y-down coordinate system (origin at top-left, y increases downward).
-    // The final FBO is presented to screen with vflip=true on Wayland/GLFW, which maps
-    // GL y- to screen top and GL y+ to screen bottom. This effectively inverts Y again,
-    // so we need: gl_y = origin.y - scene_h/2  (not the CImage-style scene_h/2 - origin.y).
-    // CImage pre-compensates for X11 (no vflip) and gets corrected by the Wayland vflip.
-    // CText renders with direct vflip-aware coordinates.
+    // WE uses a Y-down coordinate system (origin at top-left, y increases downward),
+    // so scene y maps to GL y as scene_h/2 - origin.y, matching CImage.
+    //
+    // This previously used origin.y - scene_h/2 on the reasoning that the Wayland/GLFW
+    // vflip inverts Y a second time. Observed behaviour on KWin/Wayland contradicts
+    // that: it mirrors text objects about the scene's horizontal centre line, which
+    // inverts the vertical order of a stacked group. Wallpapers that place a day name
+    // above a date and clock rendered them bottom-up. See #583.
     const float scene_w = getScene ().getCamera ().getWidth ();
     const float scene_h = getScene ().getCamera ().getHeight ();
     const glm::vec3 gl_origin = {
 	origin.x - scene_w * 0.5f,
-	origin.y - scene_h * 0.5f,
+	scene_h * 0.5f - origin.y,
 	origin.z,
     };
 
