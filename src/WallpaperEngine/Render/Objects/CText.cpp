@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <vector>
+#include <cstdlib>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -201,15 +202,63 @@ bool CText::loadSystemFont () {
     return true;
 }
 
+float CText::pixelsPerPoint () const {
+    if (m_pixelsPerPoint > 0.0f) {
+        return m_pixelsPerPoint;
+    }
+
+    // WE stores the authored extent of the text block in `size`. Its height is the
+    // glyph line height plus `padding` on each edge, at whatever pixel size WE
+    // rasterised at. Recovering that pixel size and dividing by the authored point
+    // size yields the scene's pixels-per-point with no magic constant. Line height
+    // scales linearly with pixel size, so a single reference measurement inverts it.
+    const float boxLineHeight = m_text.size.y - 2.0f * static_cast<float> (m_text.padding);
+    const float pointSize = m_text.pointSize->value->getFloat ();
+
+    if (m_ftFace != nullptr && boxLineHeight > 0.0f && pointSize > 0.0f) {
+        constexpr FT_UInt REFERENCE_PX = 100;
+        const FT_UInt previous = static_cast<FT_UInt> (m_lastPixelSize);
+
+        if (FT_Set_Pixel_Sizes (m_ftFace, 0, REFERENCE_PX) == 0) {
+            const float referenceLineHeight =
+                static_cast<float> (m_ftFace->size->metrics.height) / 64.0f;
+
+            if (referenceLineHeight > 0.0f) {
+                m_pixelsPerPoint =
+                    (boxLineHeight * static_cast<float> (REFERENCE_PX) / referenceLineHeight) / pointSize;
+            }
+        }
+
+        // render() only calls FT_Set_Pixel_Sizes when the computed size changes, so
+        // the probe above must not be left as the face's active size.
+        if (previous > 0) {
+            FT_Set_Pixel_Sizes (m_ftFace, 0, previous);
+        }
+    }
+
+    if (m_pixelsPerPoint <= 0.0f) {
+        // Scenes that omit `size` fall back to a value measured across the wallpapers
+        // in #583; WPE_TEXT_SCALE overrides it for testing against other content.
+        m_pixelsPerPoint = 4.15f;
+
+        if (const char* env = std::getenv ("WPE_TEXT_SCALE")) {
+            const float parsed = std::strtof (env, nullptr);
+            if (parsed > 0.0f) {
+                m_pixelsPerPoint = parsed;
+            }
+        }
+    }
+
+    return m_pixelsPerPoint;
+}
+
 unsigned int CText::computeEffectivePixelSize () const {
-    // WE text objects often come with scale ~0.09 that, combined with a modest
-    // pointsize, would rasterize glyphs to ~2px on screen (invisible). Rasterize
-    // at higher resolution so that after the model scale is applied in render()
-    // the on-screen size matches the intended pointsize.
-    const glm::vec3 initialScale = m_text.scale->value->getVec3 ();
-    const float avgScale = (initialScale.x + initialScale.y) * 0.5f;
-    const float compensate = (avgScale > 0.0f && avgScale < 1.0f) ? std::min (1.0f / avgScale, 32.0f) : 1.0f;
-    return std::max<unsigned int> (1u, static_cast<unsigned int> (m_text.pointSize->value->getFloat () * compensate));
+    // Previously this rasterised at pointSize * (1/scale) while render() multiplied the
+    // model matrix by scale again; the two cancelled, pinning every text object to
+    // pointSize scene units regardless of its declared scale. Deriving the rasterisation
+    // size from the scene's pixels-per-point instead lets the per-object scale through.
+    return std::max<unsigned int> (
+        1u, static_cast<unsigned int> (m_text.pointSize->value->getFloat () * pixelsPerPoint ()));
 }
 
 void CText::initScriptLayer () {
