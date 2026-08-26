@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <vector>
 #include <cstdlib>
+#include <cmath>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -224,8 +225,12 @@ float CText::pixelsPerPoint () const {
                 static_cast<float> (m_ftFace->size->metrics.height) / 64.0f;
 
             if (referenceLineHeight > 0.0f) {
-                m_pixelsPerPoint =
+                const float derived =
                     (boxLineHeight * static_cast<float> (REFERENCE_PX) / referenceLineHeight) / pointSize;
+
+                if (std::isfinite (derived) && derived > 0.0f) {
+                    m_pixelsPerPoint = derived;
+                }
             }
         }
 
@@ -242,8 +247,11 @@ float CText::pixelsPerPoint () const {
         m_pixelsPerPoint = 4.15f;
 
         if (const char* env = std::getenv ("WPE_TEXT_SCALE")) {
+            // strtof yields inf for "inf" and for overflowing input such as "1e999",
+            // both of which would survive a bare > 0 test and poison the conversion
+            // to unsigned int further down.
             const float parsed = std::strtof (env, nullptr);
-            if (parsed > 0.0f) {
+            if (std::isfinite (parsed) && parsed > 0.0f) {
                 m_pixelsPerPoint = parsed;
             }
         }
@@ -257,8 +265,17 @@ unsigned int CText::computeEffectivePixelSize () const {
     // model matrix by scale again; the two cancelled, pinning every text object to
     // pointSize scene units regardless of its declared scale. Deriving the rasterisation
     // size from the scene's pixels-per-point instead lets the per-object scale through.
-    return std::max<unsigned int> (
-        1u, static_cast<unsigned int> (m_text.pointSize->value->getFloat () * pixelsPerPoint ()));
+    const float pixels = m_text.pointSize->value->getFloat () * pixelsPerPoint ();
+
+    if (!std::isfinite (pixels) || pixels <= 1.0f) {
+        return 1u;
+    }
+
+    // Cap before converting: a malformed scene or a wild WPE_TEXT_SCALE must not
+    // overflow the cast or ask FreeType for an unreasonable glyph atlas.
+    constexpr float MAX_PIXEL_SIZE = 2048.0f;
+
+    return static_cast<unsigned int> (std::min (pixels, MAX_PIXEL_SIZE));
 }
 
 void CText::initScriptLayer () {
