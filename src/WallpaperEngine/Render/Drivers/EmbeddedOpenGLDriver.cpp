@@ -25,9 +25,10 @@ EmbeddedOpenGLDriver::EmbeddedOpenGLDriver (
 
     this->m_output = new Output::EmbeddedOutput (context, *this, host);
 
-    // Point the renderer at the host's framebuffer before any wallpaper is
-    // built, so the first frame already lands in the right place.
-    app.setDestinationFramebuffer (host.getDestinationFramebuffer ());
+    // The host's framebuffer is deliberately not published here. This runs from
+    // inside WallpaperApplication::setup(), before the render context exists, so
+    // there is nothing to propagate to yet. The host sets it once setup() has
+    // returned, and again whenever its framebuffer is recreated.
 }
 
 EmbeddedOpenGLDriver::~EmbeddedOpenGLDriver () { delete this->m_output; }
