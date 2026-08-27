@@ -999,6 +999,15 @@ const WallpaperEngine::Render::Drivers::Output::Output& WallpaperApplication::ge
 
 void WallpaperApplication::setDestinationFramebuffer (GLuint framebuffer) {
     this->m_destinationFramebuffer = framebuffer;
+
+    // Reachable before setup() has built the render context - an embedding host
+    // learns its framebuffer as soon as the video driver is constructed, which
+    // happens inside setupOutput(). Record the value and let the wallpapers pick
+    // it up when the caller sets it again after setup() returns.
+    if (this->m_renderContext == nullptr) {
+	return;
+    }
+
     // Update all wallpapers with the new destination framebuffer
     for (const auto& [screen, wallpaper] : this->m_renderContext->getWallpapers ()) {
 	wallpaper->setDestinationFramebuffer (framebuffer);
