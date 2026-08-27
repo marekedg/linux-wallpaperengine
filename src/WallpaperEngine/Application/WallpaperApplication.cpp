@@ -856,8 +856,15 @@ void WallpaperApplication::render () {
     static time_t seconds;
     static struct tm* timeinfo;
 
+    // An embedding host owns the frame clock and calls us from its own render
+    // thread. Blocking or self-pausing there stalls the host's rendering, so
+    // both are left to the host in this mode.
+    const bool embedded = this->m_context.settings.render.mode == ApplicationContext::EMBEDDED_HOST;
+
     if (this->m_isPaused) {
-	usleep (FULLSCREEN_CHECK_WAIT_TIME);
+	if (!embedded) {
+	    usleep (FULLSCREEN_CHECK_WAIT_TIME);
+	}
 	if (this->m_fullScreenDetector->anythingFullscreen () && this->m_context.state.general.keepRunning) {
 	    return;
 	}
@@ -928,7 +935,8 @@ void WallpaperApplication::render () {
 	}
 #endif /* DEMOMODE */
 	// check for fullscreen windows and wait until there's none fullscreen
-	if (this->m_fullScreenDetector->anythingFullscreen () && this->m_context.state.general.keepRunning) {
+	if (!embedded && this->m_fullScreenDetector->anythingFullscreen ()
+	    && this->m_context.state.general.keepRunning) {
 	    this->m_isPaused = true;
 	    this->m_pauseStart = std::chrono::steady_clock::now ();
 
