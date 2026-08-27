@@ -180,8 +180,13 @@ AssetLocatorUniquePtr WallpaperApplication::setupAssetLocator (const std::string
 }
 
 void WallpaperApplication::loadBackgrounds () {
+    // EMBEDDED_HOST belongs with the windowed modes: it renders a single viewport
+    // named "default" and has no --screen-root to key backgrounds off, so the
+    // per-screen path below would leave m_backgrounds empty, create no wallpapers,
+    // and render nothing at all.
     if (this->m_context.settings.render.mode == ApplicationContext::NORMAL_WINDOW
-	|| this->m_context.settings.render.mode == ApplicationContext::EXPLICIT_WINDOW) {
+	|| this->m_context.settings.render.mode == ApplicationContext::EXPLICIT_WINDOW
+	|| this->m_context.settings.render.mode == ApplicationContext::EMBEDDED_HOST) {
 	auto path = this->m_context.settings.general.defaultBackground;
 
 	if (this->m_context.settings.general.defaultPlaylist.has_value ()
